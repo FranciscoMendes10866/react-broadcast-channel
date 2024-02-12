@@ -1,45 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 class LocalStorageManager {
-  storage;
+  _storage;
   constructor() {
-    this.storage = window.localStorage;
+    this._storage = window.localStorage;
   }
-
   get(key) {
-    const value = this.storage.getItem(key);
-    return JSON.parse(value);
+    const value = this._storage.getItem(key);
+    return typeof value === "string" ? JSON.parse(value) : null;
   }
-
   set(key, value) {
-    this.storage.setItem(key, JSON.stringify(value));
+    this._storage.setItem(key, JSON.stringify(value));
   }
 }
 
 function usePersistor(key, initialData, driver) {
   const [storedData, setStoredData] = useState(initialData);
-  const [channel] = useState(() => new BroadcastChannel(key));
+  const _channel = useRef(new BroadcastChannel(key)).current;
 
   const _readValue = () => {
-    try {
-      const value = driver.get(key);
-      return value ?? initialData;
-    } catch (error) {
-      return initialData;
-    }
+    const value = driver.get(key);
+    return value ?? initialData;
   };
 
   const setValue = (data) => {
-    try {
-      const value = driver.get(key);
-      if (JSON.stringify(value) !== JSON.stringify(data)) {
-        driver.set(key, data);
-        setStoredData(data);
-        channel.postMessage(data);
-      }
-    } catch (error) {
-      console.error(error);
-    }
+    driver.set(key, data);
+    setStoredData(data);
+    _channel.postMessage(data);
   };
 
   useEffect(() => {
@@ -48,21 +35,21 @@ function usePersistor(key, initialData, driver) {
   }, []);
 
   useEffect(() => {
-    function listener({ data }) {
-      setValue(data);
+    function _listener({ data }) {
+      setStoredData(data);
     }
 
-    channel.addEventListener("message", listener);
+    _channel.addEventListener("message", _listener);
     return () => {
-      channel.removeEventListener("message", listener);
+      _channel.removeEventListener("message", _listener);
     };
   }, []);
 
   return [storedData, setValue];
 }
 
-function App() {
-  const [driver] = useState(() => new LocalStorageManager());
+export default function App() {
+  const driver = useRef(new LocalStorageManager()).current;
   const [count, setCount] = usePersistor("counter", 0, driver);
   const [name, setName] = usePersistor("name", "", driver);
 
@@ -79,5 +66,3 @@ function App() {
     </section>
   );
 }
-
-export default App;
