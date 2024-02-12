@@ -15,7 +15,7 @@ class LocalStorageManager {
 }
 
 function usePersistor(key, initialData, driver) {
-  const [storedData, setStoredData] = useState(initialData);
+  const [storedData, _setStoredData] = useState(() => initialData);
   const _channel = useRef(new BroadcastChannel(key)).current;
 
   const _readValue = () => {
@@ -25,18 +25,18 @@ function usePersistor(key, initialData, driver) {
 
   const setValue = (data) => {
     driver.set(key, data);
-    setStoredData(data);
+    _setStoredData(data);
     _channel.postMessage(data);
   };
 
   useEffect(() => {
     const value = _readValue();
-    setStoredData(value);
+    _setStoredData(value);
   }, []);
 
   useEffect(() => {
     function _listener({ data }) {
-      setStoredData(data);
+      _setStoredData(data);
     }
 
     _channel.addEventListener("message", _listener);
